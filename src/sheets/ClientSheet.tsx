@@ -2,20 +2,22 @@ import { useStore } from '../app/store';
 import { uid } from '../data/changes';
 import * as S from '../data/select';
 import { followUpMessage } from '../intelligence/drafts';
+import { evidenciaAgente } from '../intelligence/evidencia';
+import { METODOS } from '../core/metodos.ts';
 import { pct, relative, usdK } from '../lib/format';
 import { PropertyRow } from '../ui/entities';
 import { Bullets, Initials, Meter, Section } from '../ui/kit';
 import { Sheet } from './SheetHost';
 
 export function ClientSheet({ id, accent }: { id: string; accent: string }) {
-  const { ws, run } = useStore();
+  const { ws, run, demo } = useStore();
   const c = S.client(ws, id);
   if (!c) return null;
   const props = c.propertyIds.map((pid) => S.prop(ws, pid)!).filter(Boolean);
-  const draft = followUpMessage(c, ws.agent, props[0], props[0] && S.listingFor(ws, props[0].id)?.step);
+  const draft = followUpMessage(c, ws.agent, props[0], props[0] && S.listingFor(ws, props[0].id)?.step, props[0] && evidenciaAgente(ws, props[0].district, demo));
   const history = ws.activities.filter((a) => a.relatedId === c.id);
   const role = { comprador: 'Comprador', propietario: 'Propietario', inversionista: 'Inversionista' }[c.role];
-  const urgent = c.lastContactDays >= 5;
+  const urgent = c.lastContactDays >= METODOS.pulseSeguimiento.parametros.diasSinContacto;
 
   return (
     <Sheet label="Cliente" accent={accent}>

@@ -5,7 +5,10 @@
 import type { MunayAction } from '../app/nav';
 import * as S from '../data/select';
 import type { Workspace } from '../data/types';
+import { METODOS } from '../core/metodos.ts';
 import { pct } from '../lib/format';
+
+const { pulseSeguimiento: SEG, pulseBajaActividad: BAJA, pulsePropuesta: PROP } = METODOS;
 
 export interface Signal {
   id: string;
@@ -30,7 +33,7 @@ export function signals(ws: Workspace): Signal[] {
   }
 
   for (const c of ws.clients) {
-    if (c.role !== 'propietario' && c.lastContactDays >= 5 && c.probability >= 0.6) {
+    if (c.role !== 'propietario' && c.lastContactDays >= SEG.parametros.diasSinContacto && c.probability >= SEG.parametros.probabilidadMinima) {
       out.push({
         id: `cli-${c.id}`, kind: 'cliente', score: 60 + c.probability * 30 + c.lastContactDays,
         title: `${c.name.split(' ')[0]} lleva ${c.lastContactDays} días sin seguimiento`,
@@ -54,7 +57,7 @@ export function signals(ws: Workspace): Signal[] {
 
   for (const p of ws.properties.filter((x) => x.status === 'activa')) {
     const rate = p.views7d ? p.inquiries7d / p.views7d : 0;
-    if (p.daysOnMarket > 40 && rate < 0.04) {
+    if (p.daysOnMarket > BAJA.parametros.diasPublicada && rate < BAJA.parametros.conversionMinima) {
       out.push({
         id: `prop-${p.id}`, kind: 'propiedad', score: 70 + p.daysOnMarket / 10,
         title: `${p.type} en ${p.district} con baja actividad`,
@@ -65,7 +68,7 @@ export function signals(ws: Workspace): Signal[] {
   }
 
   for (const l of ws.listings) {
-    if (l.step === 'propuesta' && l.daysInStep >= 3) {
+    if (l.step === 'propuesta' && l.daysInStep >= PROP.parametros.diasSinRespuesta) {
       const owner = S.client(ws, l.ownerId);
       out.push({
         id: `cap-${l.id}`, kind: 'captación', score: 62,

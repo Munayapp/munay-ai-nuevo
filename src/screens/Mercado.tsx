@@ -5,7 +5,9 @@ import type { Comparable, District, Property } from '../data/types';
 import { coach } from '../intelligence/coach';
 import { pct, signedPct, usd, usdK } from '../lib/format';
 import { Icon } from '../ui/Icon';
-import { Coach, Display, LineChart, Media, Section, Seg, Thinking } from '../ui/kit';
+import { Coach, DemoTag, Display, LineChart, Media, Section, Seg, Thinking } from '../ui/kit';
+import { METODOS } from '../core/metodos.ts';
+import { MERCADO_ES_DEMO } from '../intelligence/procedencia';
 import { ZoneMap } from '../ui/ZoneMap';
 
 type SegId = 'zonas' | 'comparables' | 'tendencias';
@@ -38,11 +40,11 @@ function Meaning({ p }: { p: Property }) {
   if (phase === 'thinking') return <Thinking stages={['Comparando precio por m²…', `Leyendo ${p.district}…`, 'Encontré esto.']} onDone={() => setPhase('done')} />;
   const verdict =
     pos.verdict === 'sobre'
-      ? `Estás ${pct(pos.diff)} sobre el mercado.`
+      ? `Estás ${pct(pos.diff)} sobre tus comparables.`
       : pos.verdict === 'bajo'
-        ? `Estás ${pct(-pos.diff)} bajo el mercado: hay margen para negociar mejor.`
-        : 'Estás en precio de mercado.';
-  const act = pos.verdict === 'sobre' ? `Ajustar a ${usdK(pos.fairHigh)} te pondría en el rango que se vende en ${S.zone(ws, p.district).daysOnMarket} días.` : 'Mantén el precio y trabaja la visibilidad.';
+        ? `Estás ${pct(-pos.diff)} bajo tus comparables: hay margen para negociar mejor.`
+        : 'Estás en línea con tus comparables.';
+  const act = pos.verdict === 'sobre' ? `Ajustar a ${usdK(pos.fairHigh)} te pondría dentro del rango del método MUNAY.` : 'Mantén el precio y trabaja la visibilidad.';
   return (
     <div className="answer rise">
       <p className="lead">{verdict}</p>
@@ -56,7 +58,7 @@ function Meaning({ p }: { p: Property }) {
         <span>{usd(pos.compM2)}</span>
       </div>
       <div className="kv strong">
-        <span>Rango recomendado</span>
+        <span>{METODOS.rangoValorizacion.nombre}</span>
         <span>
           {usdK(pos.fairLow)}–{usdK(pos.fairHigh)}
         </span>
@@ -98,6 +100,11 @@ export function Mercado() {
   return (
     <div className="page">
       <Display title="Mercado" sub="Datos que te dan ventaja." />
+      {MERCADO_ES_DEMO && (
+        <p className="small muted" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <DemoTag what="Datos de mercado de demostración" /> Zonas, comparables y tendencias de demostración: sin fuente de mercado conectada.
+        </p>
+      )}
 
       <Seg<SegId>
         value={seg}
@@ -197,7 +204,7 @@ export function Mercado() {
           <p className="lead" style={{ marginBottom: 6 }}>
             {district} {zone.changeYoY >= 0 ? 'sube' : 'baja'} {pct(Math.abs(zone.changeYoY), 1)} en el año.
           </p>
-          <p className="muted" style={{ marginBottom: 18 }}>{zone.reading}</p>
+
           <div className="stats" style={{ marginBottom: 22 }}>
             <div className="stat">
               <div className="stat-value">{zone.medianUSDm2.toLocaleString('en-US')}</div>

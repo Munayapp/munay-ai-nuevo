@@ -38,9 +38,19 @@ export function ReadingView({ reading }: { reading: DocReading }) {
           <Bullets items={d.flags} />
         </Reveal>
       )}
-      <Reveal label="Qué falta">
-        <Bullets items={d.missing} />
+      <Reveal label="Requisitos respaldados por el Core">
+        {d.backed?.length ? <Bullets items={d.backed} /> : <p className="small muted">Ninguno todavía: el Core no tiene conocimiento activo para este documento.</p>}
       </Reveal>
+      {d.missing.length > 0 && (
+        <Reveal label="Revisión sugerida · práctica MUNAY, no verificada">
+          <Bullets items={d.missing} />
+        </Reveal>
+      )}
+      {d.pending && d.pending.length > 0 && (
+        <Reveal label="Datos pendientes">
+          <Bullets items={d.pending} />
+        </Reveal>
+      )}
       <Reveal label="Preguntas para abogado o notaría">
         <Bullets items={d.questions} />
       </Reveal>

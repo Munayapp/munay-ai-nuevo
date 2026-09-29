@@ -135,7 +135,6 @@ export interface Zone {
   demand: 'alta' | 'media' | 'baja';
   inventory: number;
   series: PricePoint[];
-  reading: string;
 }
 
 export type DocStatus = 'recibido' | 'pendiente' | 'observado';
@@ -151,8 +150,13 @@ export interface Doc {
   summary: string;
   extracted: [string, string][];
   flags: string[];
+  /** Revisión sugerida (práctica MUNAY, no verificada). No es un requisito legal. */
   missing: string[];
   questions: string[];
+  /** P1.2A — Requisitos respaldados por unidades ACTIVAS del Core (vacío si no hay respaldo). */
+  backed?: string[];
+  /** P1.2A — Datos que no se pudieron leer o encontrar en el documento. */
+  pending?: string[];
 }
 
 export interface Task {

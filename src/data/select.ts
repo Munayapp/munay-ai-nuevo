@@ -1,5 +1,9 @@
-import { dayLabel } from '../lib/format';
+import { METODOS } from '../core/metodos.ts';
+import { dayLabel } from '../lib/format.ts';
 import type { Comparable, District, ID, Operation, Property, Workspace } from './types';
+
+/** Parámetros del método canónico (core/metodos.ts). No se redefinen aquí. */
+const RV = METODOS.rangoValorizacion.parametros;
 
 export const prop = (ws: Workspace, id?: ID) => ws.properties.find((p) => p.id === id);
 export const client = (ws: Workspace, id?: ID) => ws.clients.find((c) => c.id === id);
@@ -42,7 +46,7 @@ export function propertyState(ws: Workspace, p: Property): OpState {
 /** Comparables relevantes: misma zona, área ±25%. */
 export function compsFor(ws: Workspace, p: Pick<Property, 'district' | 'areaM2'>): Comparable[] {
   return ws.comparables
-    .filter((c) => c.district === p.district && Math.abs(c.areaM2 - p.areaM2) / p.areaM2 <= 0.25)
+    .filter((c) => c.district === p.district && Math.abs(c.areaM2 - p.areaM2) / p.areaM2 <= METODOS.comparables.parametros.toleranciaArea)
     .sort((a, b) => a.distanceBlocks - b.distanceBlocks);
 }
 
@@ -50,7 +54,7 @@ export interface Position {
   comps: Comparable[];
   compM2: number;
   ownM2: number;
-  diff: number; // + = sobre el mercado
+  diff: number; // + = sobre los comparables
   fairLow: number;
   fairHigh: number;
   verdict: 'sobre' | 'en' | 'bajo';
@@ -69,8 +73,8 @@ export function position(ws: Workspace, p: Property): Position {
     compM2,
     ownM2,
     diff,
-    fairLow: Math.round((fair * 0.97) / 1000) * 1000,
-    fairHigh: Math.round((fair * 1.02) / 1000) * 1000,
-    verdict: diff > 0.025 ? 'sobre' : diff < -0.025 ? 'bajo' : 'en',
+    fairLow: Math.round((fair * RV.bandaInferior) / 1000) * 1000,
+    fairHigh: Math.round((fair * RV.bandaSuperior) / 1000) * 1000,
+    verdict: diff > RV.umbralPosicion ? 'sobre' : diff < -RV.umbralPosicion ? 'bajo' : 'en',
   };
 }

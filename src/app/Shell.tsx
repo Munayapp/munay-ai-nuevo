@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { topSignals } from '../intelligence/pulse';
 import { Icon } from '../ui/Icon';
-import { Wordmark } from '../ui/kit';
+import { DemoTag, Wordmark } from '../ui/kit';
 import { Hoy } from '../screens/Hoy';
 import { Analiza } from '../screens/Analiza';
 import { Mercado } from '../screens/Mercado';
@@ -14,11 +14,12 @@ import { useStore } from './store';
 const TAB_ICON: Record<Tab, string> = { hoy: 'home', analiza: 'wave', mercado: 'market', crea: 'create', negocio: 'person' };
 
 function Header({ solid }: { solid: boolean }) {
-  const { ws, open } = useStore();
+  const { ws, open, demo } = useStore();
   const count = topSignals(ws).length;
   return (
     <div className={`hdr${solid ? ' solid' : ''}`}>
       <Wordmark />
+      {demo && <span style={{ marginLeft: 10 }}><DemoTag /></span>}
       <span className="hdr-spacer" />
       <button className="icon-btn" aria-label="Pregúntale a MUNAY" onClick={() => open({ kind: 'resolver' })}>
         <Icon name="search" size={22} />

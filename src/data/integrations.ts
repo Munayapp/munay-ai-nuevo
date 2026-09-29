@@ -29,3 +29,6 @@ export const hubspotSource = createHubSpotSource();
 export function activeSource(): DataSource {
   return hubspotSource.isReady() ? hubspotSource : localMockSource;
 }
+
+/** true mientras los datos del agente vienen del conjunto de demostración (P1.2A: todo lo visible lleva DEMO). */
+export const esDemo = () => activeSource().id === localMockSource.id;

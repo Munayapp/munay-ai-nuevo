@@ -1,0 +1,5 @@
+# Cloudflare Pages: sirve dist/ y las funciones de functions/ en el mismo dominio.
+# Los secretos NO van aquí: `npx wrangler pages secret put OPENAI_API_KEY`.
+name = "munay-ai"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-09-01"

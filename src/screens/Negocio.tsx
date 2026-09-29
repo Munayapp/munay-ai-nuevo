@@ -3,7 +3,7 @@ import { useStore } from '../app/store';
 import * as S from '../data/select';
 import { CAPTURE_STEPS } from '../data/types';
 import { coach } from '../intelligence/coach';
-import { netCommissionPEN } from '../intelligence/finance';
+import { netCommissionPEN, netCommissionStatus } from '../intelligence/finance';
 import { dayLabel, pct, penK, time } from '../lib/format';
 import { ClientRow, OperationRow } from '../ui/entities';
 import { Icon } from '../ui/Icon';
@@ -68,7 +68,7 @@ export function Negocio() {
               </div>
               <div className="stat">
                 <div className="stat-value">{penK(pipeline)}</div>
-                <div className="stat-label">Comisión proyectada</div>
+                <div className="stat-label">Comisión proyectada{netCommissionStatus().etiqueta ? ' · estimado no verificado' : ''}</div>
               </div>
               <div className="stat">
                 <div className="stat-value">{pct(ws.agent.metrics.conversion)}</div>
@@ -108,7 +108,7 @@ export function Negocio() {
             .map((c) => (
               <ClientRow key={c.id} c={c} />
             ))}
-          <p className="note" style={{ marginTop: 16 }}>Ordenados por probabilidad de cierre.</p>
+          <p className="note" style={{ marginTop: 16 }}>Ordenados por la probabilidad que registraste.</p>
         </div>
       )}
 

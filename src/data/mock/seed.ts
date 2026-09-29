@@ -127,7 +127,7 @@ const clients: Client[] = [
     id: 'c-mariana', name: 'Mariana Torres', role: 'propietario', phone: '+51 9•• ••• 318',
     districts: ['Santiago de Surco'], wants: 'Vender su casa en Chacarilla en menos de 4 meses',
     probability: 0.7, lastContactDays: 4, propertyIds: ['p-chacarilla'],
-    memory: ['Hereda con su hermano: ambos deben firmar.', 'Espera US$ 345K; el mercado sugiere US$ 320–335K.'],
+    memory: ['Hereda con su hermano: confirmar en la partida quiénes deben firmar.', 'Espera US$ 345K.'],
   },
   {
     id: 'c-rafael', name: 'Rafael Cáceres', role: 'propietario', phone: '+51 9•• ••• 905',
@@ -189,12 +189,12 @@ const listings: Listing[] = [
   { id: 'l-osma', propertyId: 'p-osma', ownerId: 'c-hector', step: 'prospecto', exclusive: false, daysInStep: 9, note: 'Referido de Jorge. Duda entre vender o alquilar.' },
 ];
 
-const DISTRICT_BASE: Record<District, { m2: number; yoy: number; dom: number; demand: Zone['demand']; inv: number; reading: string }> = {
-  Miraflores: { m2: 2060, yoy: 0.046, dom: 58, demand: 'alta', inv: 412, reading: 'Demanda sostenida en 2–3 dormitorios. Los departamentos con buena luz se venden 3 semanas antes.' },
-  'San Isidro': { m2: 2310, yoy: 0.032, dom: 64, demand: 'media', inv: 288, reading: 'Mercado estable. El comprador negocia más: descuentos de 3–4% sobre precio publicado.' },
-  Barranco: { m2: 2140, yoy: 0.061, dom: 41, demand: 'alta', inv: 164, reading: 'La zona que más sube. Inversionistas buscan lofts para renta corta cerca del malecón.' },
-  'Santiago de Surco': { m2: 1560, yoy: 0.028, dom: 72, demand: 'media', inv: 520, reading: 'Casas familiares con demanda estable; precio es el factor decisivo.' },
-  'La Molina': { m2: 1420, yoy: 0.019, dom: 86, demand: 'baja', inv: 346, reading: 'Ciclos de venta largos. Jardín y seguridad justifican precio.' },
+const DISTRICT_BASE: Record<District, { m2: number; yoy: number; dom: number; demand: Zone['demand']; inv: number }> = {
+  Miraflores: { m2: 2060, yoy: 0.046, dom: 58, demand: 'alta', inv: 412 },
+  'San Isidro': { m2: 2310, yoy: 0.032, dom: 64, demand: 'media', inv: 288 },
+  Barranco: { m2: 2140, yoy: 0.061, dom: 41, demand: 'alta', inv: 164 },
+  'Santiago de Surco': { m2: 1560, yoy: 0.028, dom: 72, demand: 'media', inv: 520 },
+  'La Molina': { m2: 1420, yoy: 0.019, dom: 86, demand: 'baja', inv: 346 },
 };
 
 const MONTHS = ['Oct', 'Nov', 'Dic', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep'];
@@ -208,7 +208,7 @@ const zones: Zone[] = (Object.keys(DISTRICT_BASE) as District[]).map((district, 
     return { month, usdM2: Math.round(start * (1 + b.yoy * t + wobble)) };
   });
   series[series.length - 1].usdM2 = b.m2;
-  return { district, medianUSDm2: b.m2, changeYoY: b.yoy, daysOnMarket: b.dom, demand: b.demand, inventory: b.inv, series, reading: b.reading };
+  return { district, medianUSDm2: b.m2, changeYoY: b.yoy, daysOnMarket: b.dom, demand: b.demand, inventory: b.inv, series };
 });
 
 const STREETS: Record<District, string[]> = {
@@ -245,9 +245,9 @@ const documents: Doc[] = [
   {
     id: 'd-partida-fresnos', name: 'Copia literal — Partida 4912••••', kind: 'Partida registral', propertyId: 'p-fresnos', operationId: 'op-fresnos',
     status: 'observado', pages: 6,
-    summary: 'El inmueble está inscrito a nombre de la Familia Gutiérrez. Tiene una hipoteca vigente a favor de un banco que debe levantarse antes de la minuta.',
+    summary: 'El inmueble está inscrito a nombre de la Familia Gutiérrez. Figura una hipoteca vigente a favor de un banco (asiento D00002).',
     extracted: [['Titulares', 'Luis y Carmen Gutiérrez'], ['Área inscrita', '240 m²'], ['Cargas', 'Hipoteca vigente (asiento D00002)'], ['Emitida', 'hace 42 días']],
-    flags: ['Hipoteca vigente: retrasa la transferencia limpia.', 'Copia literal con más de 30 días: la notaría pedirá una actualizada.'],
+    flags: ['Hipoteca vigente: coordinar con el banco y la notaría cómo se levanta.', 'Copia literal emitida hace 42 días: confirmar si la notaría la acepta.'],
     missing: ['Carta de levantamiento de hipoteca.', 'Copia literal actualizada.'],
     questions: ['¿El banco emitirá la carta antes de la firma o se cancelará con el pago del comprador?', '¿La notaría acepta el levantamiento simultáneo a la compraventa?'],
   },
@@ -262,13 +262,13 @@ const documents: Doc[] = [
   },
   {
     id: 'd-hrpu-camino', name: 'Autovalúo 2026 (HR/PU)', kind: 'Declaración jurada de autovalúo', propertyId: 'p-camino', operationId: 'op-camino',
-    status: 'pendiente', pages: 0, summary: 'Aún no recibido. El banco lo pide para la tasación.',
+    status: 'pendiente', pages: 0, summary: 'Aún no recibido. Pendiente para la tasación.',
     extracted: [], flags: [], missing: ['HR/PU 2026 del propietario.'], questions: [],
   },
   {
     id: 'd-auth-begonias', name: 'Autorización de venta exclusiva', kind: 'Autorización de venta', propertyId: 'p-begonias',
     status: 'pendiente', pages: 3,
-    summary: 'Exclusiva por 90 días, comisión 3% + IGV, precio de salida US$ 240K. Lista para firma digital.',
+    summary: 'Exclusiva por 90 días, comisión 3% + IGV, precio de salida US$ 240K. Pendiente de firma.',
     extracted: [['Plazo', '90 días'], ['Comisión', '3% + IGV'], ['Precio', 'US$ 240,000']],
     flags: [], missing: ['Firma de Rafael Cáceres.'], questions: [],
   },
@@ -277,7 +277,7 @@ const documents: Doc[] = [
 const tasks: Task[] = [
   { id: 't-1', title: 'Llamar a Mariana: propuesta de Chacarilla', when: at(0, 11, 0), kind: 'llamada', relatedId: 'l-chacarilla', done: false },
   { id: 't-2', title: 'Enviar contraoferta a Elena', when: at(0, 15, 30), kind: 'llamada', relatedId: 'op-berlin', done: false },
-  { id: 't-3', title: 'Firma digital: autorización de Rafael', when: at(0, 18, 0), kind: 'firma', relatedId: 'l-begonias', done: false },
+  { id: 't-3', title: 'Firma: autorización de Rafael', when: at(0, 18, 0), kind: 'firma', relatedId: 'l-begonias', done: false },
   { id: 't-4', title: 'Visita con Lucía: Av. José Pardo', when: at(1, 10, 30), kind: 'visita', relatedId: 'p-pardo', done: false },
   { id: 't-5', title: 'Tasación del banco en Camino Real', when: at(3, 11, 0), kind: 'visita', relatedId: 'op-camino', done: false },
 ];

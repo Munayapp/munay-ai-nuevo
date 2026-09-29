@@ -4,6 +4,8 @@ import { pct, relative, usd, usdK } from '../lib/format';
 import { ClientRow, OperationRow, StatusPill } from '../ui/entities';
 import { Icon } from '../ui/Icon';
 import { Bullets, Media, mediaOf, Row, Section } from '../ui/kit';
+import { METODOS } from '../core/metodos.ts';
+import { MERCADO_ES_DEMO } from '../intelligence/procedencia';
 import { Sheet } from './SheetHost';
 
 export function PropertySheet({ id, accent }: { id: string; accent: string }) {
@@ -21,11 +23,11 @@ export function PropertySheet({ id, accent }: { id: string; accent: string }) {
 
   const important =
     p.status === 'activa'
-      ? rate < 0.04
-        ? `Poca conversión: ${p.views7d} vistas, ${p.inquiries7d} consulta. ${pos.verdict === 'sobre' ? `El precio está ${pct(pos.diff)} sobre sus comparables.` : 'El precio está bien: el problema es cómo se presenta.'}`
+      ? rate < METODOS.pulseBajaActividad.parametros.conversionMinima
+        ? `Poca conversión: ${p.views7d} vistas, ${p.inquiries7d} consulta. ${pos.verdict === 'sobre' ? `El precio está ${pct(pos.diff)} sobre sus comparables${MERCADO_ES_DEMO ? ' (DEMO)' : ''}.` : 'El precio está en línea con sus comparables: revisa cómo se presenta.'}`
         : `Buen interés: ${p.inquiries7d} consultas en 7 días. Momento de agendar visitas.`
       : p.status === 'captación'
-        ? `En captación. Valor sugerido ${usdK(pos.fairLow)}–${usdK(pos.fairHigh)}.`
+        ? `En captación. Rango del método MUNAY${MERCADO_ES_DEMO ? ' (comparables DEMO)' : ''}: ${usdK(pos.fairLow)}–${usdK(pos.fairHigh)}.`
         : op
           ? `${op.stage.charAt(0).toUpperCase() + op.stage.slice(1)}: ${op.nextAction}`
           : 'Operación cerrada.';

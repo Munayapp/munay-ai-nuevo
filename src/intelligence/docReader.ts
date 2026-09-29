@@ -5,6 +5,12 @@
  * y extracción de datos por patrones (montos, áreas, partidas, plazos, fechas).
  * Qué está preparado: PDF/imagen requieren OCR o un modelo; se reconoce el tipo por nombre
  * y se marca claramente como lectura preliminar.
+ *
+ * P1.2A — Truth Gate: separa tres cosas que antes se mezclaban en "Qué falta":
+ *   - backed:  requisito respaldado por una unidad ACTIVA del Core (hoy ninguna: la lista queda vacía);
+ *   - missing: revisión sugerida — práctica MUNAY, NO verificada, nunca presentada como requisito legal;
+ *   - pending: datos que no se pudieron leer o encontrar en el documento.
+ * Plazos de vigencia (p. ej. antigüedad de la copia literal) solo pueden venir del Core, no de aquí.
  */
 import type { Doc } from '../data/types';
 
@@ -35,15 +41,15 @@ const CHECKLIST: Record<string, { missing: string[]; questions: string[] }> = {
     questions: ['¿La penalidad es equivalente para comprador y vendedor?', '¿Quién asume los gastos notariales y registrales?'],
   },
   'Minuta de compraventa': {
-    missing: ['Copia literal actualizada (menos de 30 días).', 'Certificado de no adeudo de arbitrios.', 'Autovalúo vigente.'],
+    missing: ['Copia literal actualizada (la vigencia exigible está pendiente de verificación en el Core).', 'Constancia de no adeudo de arbitrios.', 'Autovalúo del año.'],
     questions: ['¿Existen cargas o gravámenes por levantar?', '¿El medio de pago queda bancarizado?'],
   },
   'Partida registral': {
-    missing: ['Copia literal con menos de 30 días.'],
+    missing: ['Copia literal reciente (la vigencia exigible está pendiente de verificación en el Core).'],
     questions: ['¿Los titulares coinciden con quienes firmarán?', '¿Hay hipotecas, embargos o medidas cautelares vigentes?'],
   },
   'Autorización de venta': {
-    missing: ['Firma de todos los titulares registrales.'],
+    missing: ['Confirmar que firman todos los titulares registrales.'],
     questions: ['¿El plazo de exclusividad y la comisión están claros para el propietario?'],
   },
 };
@@ -63,11 +69,21 @@ function extract(text: string): [string, string][] {
   return out;
 }
 
+function pending(extracted: [string, string][]): string[] {
+  const has = (k: string) => extracted.some(([x]) => x === k);
+  return [
+    ...(has('Montos') ? [] : ['No encontré montos en el texto.']),
+    ...(has('Partida') ? [] : ['No encontré un número de partida en el texto.']),
+    ...(has('Fecha') ? [] : ['No encontré fechas en el texto.']),
+  ];
+}
+
 function flags(text: string): string[] {
   const f: string[] = [];
-  if (/hipoteca|gravamen|embargo/i.test(text)) f.push('Menciona cargas (hipoteca/gravamen/embargo): verificar levantamiento.');
-  if (/penalidad/i.test(text)) f.push('Incluye penalidades: revisar que sean equilibradas.');
-  if (!/firma/i.test(text)) f.push('No se identifican espacios de firma.');
+  // Detecciones por palabra clave: señalan qué mirar, no concluyen nada.
+  if (/hipoteca|gravamen|embargo/i.test(text)) f.push('Detecté la palabra hipoteca, gravamen o embargo: revisar la partida.');
+  if (/penalidad/i.test(text)) f.push('Detecté la palabra penalidad: revisar su redacción.');
+  if (!/firma/i.test(text)) f.push('No encontré la palabra firma en el texto.');
   return f;
 }
 
@@ -92,6 +108,9 @@ export async function readFile(file: File): Promise<DocReading> {
     flags: isText ? flags(text) : [],
     missing: list.missing,
     questions: list.questions,
+    // Sin unidades ACTIVAS en el Core para requisitos documentales: nada se presenta como requisito respaldado.
+    backed: [],
+    pending: isText ? pending(extracted) : ['No leí el contenido (PDF o imagen): ningún dato de este documento está verificado.'],
   };
 
   return {

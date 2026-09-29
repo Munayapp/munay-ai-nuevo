@@ -4,6 +4,7 @@ import { useStore } from '../app/store';
 import * as S from '../data/select';
 import type { Property } from '../data/types';
 import { create, OBJECTIVES, PIECES, pieceText, proposal, type Creation } from '../intelligence/creative';
+import { evidenciaAgente } from '../intelligence/evidencia';
 import { memory } from '../intelligence/memory';
 import { Icon } from '../ui/Icon';
 import { Coach, Display, Media, mediaOf, Seg, Thinking } from '../ui/kit';
@@ -53,13 +54,14 @@ function ReelPreview({ p, c }: { p: Property; c: Creation }) {
 }
 
 export function Crea() {
-  const { ws, params, run } = useStore();
+  const { ws, params, run, demo } = useStore();
   const pc = params.crea ?? {};
   const candidates = ws.properties.filter((p) => p.status !== 'vendida');
   const initialProp = S.prop(ws, pc.propertyId) ?? S.prop(ws, memory.get().focus.propertyId) ?? candidates.find((p) => p.status === 'activa')!;
   const [pid, setPid] = useState(initialProp.id);
   const p = S.prop(ws, pid)!;
-  const suggestion = proposal(p);
+  const evidencia = useMemo(() => evidenciaAgente(ws, p.district, demo), [ws, p.district, demo]);
+  const suggestion = proposal(p, evidencia);
   const [objective, setObjective] = useState<Objective>(pc.objective ?? suggestion.objective);
   const [piece, setPiece] = useState<Piece>(pc.piece ?? suggestion.piece);
   const [version, setVersion] = useState(0);
@@ -73,7 +75,7 @@ export function Crea() {
     setPhase('thinking');
   }, [pc.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const creation = useMemo(() => create(p, objective, ws.agent, version), [p, objective, ws.agent, version]);
+  const creation = useMemo(() => create(p, objective, ws.agent, version, evidencia), [p, objective, ws.agent, version, evidencia]);
   const generate = () => setPhase('thinking');
 
   // El momento de creación ocurre donde el agente está mirando.

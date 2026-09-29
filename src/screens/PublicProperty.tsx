@@ -1,36 +1,24 @@
 /**
  * PROPERTY QR — experiencia del visitante. "La propiedad cobra vida."
  * No es una ficha: es una conversación con la propiedad que termina en interés para el agente.
+ *
+ * P1.2A — Truth Gate: lo lee un tercero (el visitante). Solo responde con datos del caso (la propiedad)
+ * y simulaciones etiquetadas como tales. Nunca con datos de mercado ni lecturas de zona.
  */
 import { useState, type CSSProperties } from 'react';
 import { useStore } from '../app/store';
 import { uid } from '../data/changes';
 import * as S from '../data/select';
-import type { Lead, Property, Workspace } from '../data/types';
-import { mortgage } from '../intelligence/finance';
-import { normalize, usd, usdK } from '../lib/format';
+import type { Lead } from '../data/types';
+import { visitorAnswer } from '../intelligence/visitor';
+import { usdK } from '../lib/format';
 import { Icon } from '../ui/Icon';
-import { Media, mediaOf, Wordmark } from '../ui/kit';
-
-function answer(p: Property, ws: Workspace, q: string): string {
-  const t = normalize(q);
-  const z = S.zone(ws, p.district);
-  const agent = ws.agent.firstName;
-  if (/precio|cuesta|vale|cuanto/.test(t) && !/cuota|mensual/.test(t)) return `${usd(p.priceUSD)}, es decir ${usd(p.priceUSD / p.areaM2)} por m². La zona promedia ${usd(z.medianUSDm2)} por m².`;
-  if (/cuota|credito|hipoteca|mensual|financ/.test(t)) return `${mortgage(p.priceUSD).headline} Referencial: 10% de inicial, 20 años. ${agent} puede ayudarte con la precalificación.`;
-  if (/estacion|cochera|auto/.test(t)) return p.parking ? `Sí, ${p.parking} estacionamiento${p.parking > 1 ? 's' : ''}.` : 'No incluye estacionamiento.';
-  if (/dormitorio|cuarto|habitacion/.test(t)) return p.bedrooms ? `${p.bedrooms} dormitorios y ${p.bathrooms} baños.` : `Es planta libre, con ${p.bathrooms} baños.`;
-  if (/metro|m2|area|tamano|grande/.test(t)) return `${p.areaM2} m²${p.floor ? `, en el piso ${p.floor}` : ''}.`;
-  if (/zona|barrio|cerca|ubicacion|donde/.test(t)) return `${p.address}, ${p.district}. ${p.features.find((f) => /cuadra|zona|parque|malecon|centro|colegio/i.test(f)) ?? z.reading}`;
-  if (/luz|vista|ilumin/.test(t)) return p.features.find((f) => /luz|vista/i.test(f)) ?? `${agent} te lo muestra mejor en persona: es de lo que más gusta.`;
-  if (/visita|ver|conocer/.test(t)) return 'Con gusto. Pide tu visita aquí abajo y te confirman el horario.';
-  return `Buena pregunta. ${agent} te responderá personalmente; déjala junto con tu interés aquí abajo.`;
-}
+import { DemoTag, Media, mediaOf, Wordmark } from '../ui/kit';
 
 const QUESTIONS = ['¿Cuánto cuesta?', '¿Cuánto sería la cuota?', '¿Tiene estacionamiento?', '¿Cómo es la zona?', '¿Aceptan mascotas?'];
 
 export function PublicProperty({ id }: { id: string }) {
-  const { ws, commit } = useStore();
+  const { ws, commit, demo } = useStore();
   const p = S.prop(ws, id);
   const [chat, setChat] = useState<{ q: string; a: string }[]>([]);
   const [q, setQ] = useState('');
@@ -48,7 +36,7 @@ export function PublicProperty({ id }: { id: string }) {
 
   const ask = (text: string) => {
     if (!text.trim()) return;
-    setChat((c) => [...c, { q: text, a: answer(p, ws, text) }]);
+    setChat((c) => [...c, { q: text, a: visitorAnswer(p, ws, text) }]);
     setQ('');
   };
 
@@ -68,7 +56,10 @@ export function PublicProperty({ id }: { id: string }) {
           <div className="hero-shade" />
           <div style={{ position: 'absolute', top: 22, left: 20, right: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Wordmark />
-            <span className="small" style={{ opacity: 0.8 }}>con {ws.agent.name}</span>
+            <span className="small" style={{ opacity: 0.8, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              {demo && <DemoTag what="Propiedad y agente de demostración" />}
+              con {ws.agent.name}
+            </span>
           </div>
           <div style={{ position: 'absolute', left: 20, right: 20, bottom: 24 }} className="rise">
             <p className="eyebrow" style={{ color: 'var(--cream)', marginBottom: 10 }}>{p.district} · {p.type}</p>

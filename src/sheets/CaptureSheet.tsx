@@ -4,7 +4,9 @@ import { uid } from '../data/changes';
 import * as S from '../data/select';
 import { CAPTURE_STEPS, type CaptureStep } from '../data/types';
 import { followUpMessage } from '../intelligence/drafts';
-import { usdK } from '../lib/format';
+import { evidenciaAgente } from '../intelligence/evidencia';
+import { MERCADO_ES_DEMO } from '../intelligence/procedencia';
+import { pct, usdK } from '../lib/format';
 import { Kv, Media, mediaOf, Section, Steps, Thinking } from '../ui/kit';
 import { Sheet } from './SheetHost';
 
@@ -78,7 +80,7 @@ function SignaturePad({ onSigned }: { onSigned: () => void }) {
 }
 
 export function CaptureSheet({ id, accent }: { id: string; accent: string }) {
-  const { ws, run, go, open } = useStore();
+  const { ws, run, go, open, demo } = useStore();
   const [mode, setMode] = useState<'view' | 'sign' | 'saving'>('view');
   const l = S.listing(ws, id);
   if (!l) return null;
@@ -129,12 +131,12 @@ export function CaptureSheet({ id, accent }: { id: string; accent: string }) {
         <div style={{ marginTop: 18 }}>
           <Kv
             rows={[
-              ['Valor sugerido', `${usdK(pos.fairLow)}–${usdK(pos.fairHigh)}`],
-              ['Comparables usados', String(pos.comps.length)],
+              ['Rango del método MUNAY', `${usdK(pos.fairLow)}–${usdK(pos.fairHigh)}`],
+              [MERCADO_ES_DEMO ? 'Comparables usados (DEMO)' : 'Comparables usados', String(pos.comps.length)],
               ...(l.step === 'propuesta'
                 ? ([
-                    ['Comisión', '3% + IGV'],
-                    ['Exclusiva', l.exclusive ? '90 días' : 'No exclusiva'],
+                    ['Comisión (tu dato)', `${pct(ws.agent.commissionRate, 1)} · IGV por confirmar`],
+                    ['Exclusiva', l.exclusive ? 'Sí · plazo por acordar' : 'No exclusiva'],
                     ['Marketing', 'Reel + portales + QR de propiedad'],
                   ] as [string, string][])
                 : []),
@@ -160,7 +162,7 @@ export function CaptureSheet({ id, accent }: { id: string; accent: string }) {
               {info.cta}
             </button>
             {l.step === 'propuesta' && (
-              <button className="btn" onClick={() => run({ label: '', effects: [{ do: 'copy', text: followUpMessage(owner, ws.agent, p), toast: 'Recordatorio copiado' }] })}>
+              <button className="btn" onClick={() => run({ label: '', effects: [{ do: 'copy', text: followUpMessage(owner, ws.agent, p, undefined, evidenciaAgente(ws, p.district, demo)), toast: 'Recordatorio copiado' }] })}>
                 Recordar a {owner.name.split(' ')[0]}
               </button>
             )}

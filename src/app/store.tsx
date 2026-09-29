@@ -14,6 +14,8 @@ interface Ask {
 
 interface Store {
   ws: Workspace;
+  /** true si los datos son de demostración (fuente local-mock). */
+  demo: boolean;
   tab: Tab;
   params: TabParams;
   stack: SheetSpec[];
@@ -143,8 +145,8 @@ export function StoreProvider({ children, fallback }: { children: ReactNode; fal
   }, [source, setTab, notify]);
 
   const value = useMemo<Store | null>(
-    () => (ws ? { ws, tab, params, stack, toast, ask, setTab, open, back, closeAll, go, run, commit, notify, askMunay, reset } : null),
-    [ws, tab, params, stack, toast, ask, setTab, open, back, closeAll, go, run, commit, notify, askMunay, reset],
+    () => (ws ? { ws, demo: source.id === 'local-mock', tab, params, stack, toast, ask, setTab, open, back, closeAll, go, run, commit, notify, askMunay, reset } : null),
+    [ws, source, tab, params, stack, toast, ask, setTab, open, back, closeAll, go, run, commit, notify, askMunay, reset],
   );
 
   if (!value) return <>{fallback}</>;

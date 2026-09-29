@@ -3,7 +3,8 @@
  * INTENCIÓN + CONTEXTO + ESTADO + SIGUIENTE ACCIÓN, y entrega un resultado (no solo una respuesta).
  *
  * Motor local por reglas + entidades + memoria. Costo S/0.
- * Un LLM puede reemplazar `interpret` más adelante manteniendo el mismo contrato `Resolution`.
+ * Si las reglas no entienden el pedido, el modelo (llm.ts, vía proxy) solo lo clasifica y reescribe;
+ * la resolución la sigue construyendo el motor local con el mismo contrato `Resolution`.
  */
 import type { MunayAction, Piece } from '../app/nav';
 import { uid } from '../data/changes';
@@ -12,11 +13,17 @@ import type { Client, Operation, Property, Workspace } from '../data/types';
 import { CAPTURE_STEPS } from '../data/types';
 import { dayLabel, normalize, pct, penK, time, usdK } from '../lib/format';
 import { topSignals } from './pulse';
-import { alcabala, commission, mortgage, netCommissionPEN, type Breakdown } from './finance';
+import { alcabala, commission, mortgage, netCommissionPEN, netCommissionStatus, type Breakdown } from './finance';
+import { esDemo } from '../data/integrations';
+import { METODOS } from '../core/metodos.ts';
+import { evidenciaAgente } from './evidencia.ts';
+import { MERCADO_ES_DEMO } from './procedencia.ts';
 import { followUpMessage, visitConfirmation } from './drafts';
 import { create, pieceText } from './creative';
 import { readFile, type DocReading } from './docReader';
 import { memory } from './memory';
+import type { Intent } from './intents';
+import { interpret } from './llm';
 
 export type Block =
   | { type: 'text'; text: string }
@@ -37,10 +44,6 @@ export interface Resolution {
   blocks: Block[];
   actions: MunayAction[];
 }
-
-type Intent =
-  | 'documento' | 'comision' | 'alcabala' | 'hipoteca' | 'visita' | 'captar'
-  | 'crear' | 'seguimiento' | 'mercado' | 'agenda' | 'entidad' | 'desconocido';
 
 const RULES: [Intent, RegExp][] = [
   ['comision', /cuanto me queda|comision|cuanto (gano|voy a ganar)|me toca|honorario|mis ingresos|si cierro/],
@@ -122,11 +125,12 @@ function money(c: Ctx): Resolution {
   const focused = S.operation(ws, memory.get().focus.operationId);
   if (total || (!c.operation && !c.property && !c.pronoun && !focused)) {
     const sum = actives.reduce((s, o) => s + netCommissionPEN(o, ws.agent), 0);
+    const st = netCommissionStatus();
     return {
       intent: 'comision', understood: 'Quieres saber cuánto te queda de tus operaciones.',
       stages: ['Sumando tus operaciones…', 'Descontando agencia e impuestos…', 'Listo.'],
-      headline: `Si cierras tus ${actives.length} operaciones, te quedan aproximadamente ${penK(sum)}.`,
-      why: 'Neto para ti: después de la parte de la agencia y la retención de cuarta categoría.',
+      headline: `${st.etiqueta ? 'Estimado no verificado: si' : 'Si'} cierras tus ${actives.length} operaciones, te quedarían aproximadamente ${penK(sum)}.`,
+      why: `Neto para ti: después de la parte de la agencia y la retención de cuarta categoría.${st.etiqueta ? ' La retención y el tipo de cambio usados no tienen respaldo activo en el Core.' : ''}`,
       blocks: actives.map((o) => ({ type: 'entity' as const, kind: 'operation' as const, id: o.id })),
       actions: [{ label: 'Ver Negocio', primary: true, go: { to: 'tab', tab: 'negocio' } }],
     };
@@ -154,7 +158,7 @@ function financeCalc(c: Ctx, kind: 'alcabala' | 'hipoteca'): Resolution {
   const b = kind === 'alcabala' ? alcabala(p.priceUSD) : mortgage(p.priceUSD);
   return {
     intent: kind, understood: `Calculo ${kind === 'alcabala' ? 'la alcabala' : 'la cuota hipotecaria'} para ${short(p)} (${usdK(p.priceUSD)}).`,
-    stages: ['Tomando el precio…', 'Aplicando parámetros vigentes…', 'Listo.'],
+    stages: ['Tomando el precio…', 'Revisando el respaldo de cada parámetro…', 'Listo.'],
     headline: b.headline, blocks: [{ type: 'breakdown', data: b }],
     actions: [{ label: 'Ver propiedad', go: { to: 'sheet', sheet: { kind: 'property', id: p.id } } }, { label: kind === 'alcabala' ? '¿Y la cuota?' : '¿Y la alcabala?', prompt: `${kind === 'alcabala' ? 'Cuota hipotecaria' : 'Alcabala'} de ${short(p)}` }],
   };
@@ -189,9 +193,9 @@ function visit(c: Ctx): Resolution {
       ...(cl ? [{ type: 'entity' as const, kind: 'client' as const, id: cl.id }] : []),
       {
         type: 'list', title: 'Llévate esto', items: [
-          `Comparables a mano: la zona se mueve en ${usdK(pos.fairLow)}–${usdK(pos.fairHigh)}.`,
+          `Rango del método MUNAY: ${usdK(pos.fairLow)}–${usdK(pos.fairHigh)} (${pos.comps.length} comparables${MERCADO_ES_DEMO ? ' DEMO' : ''}).`,
           `Resalta: ${p.features.slice(0, 2).join(' y ').toLowerCase()}.`,
-          docs.length ? `Documentos: ${docs.map((d) => d.kind.toLowerCase()).join(', ')}.` : 'Pide al propietario la copia literal actualizada antes de negociar.',
+          docs.length ? `Documentos: ${docs.map((d) => d.kind.toLowerCase()).join(', ')}.` : 'Sugerencia MUNAY (práctica no verificada): pide al propietario la copia literal antes de negociar.',
           cl?.budgetUSD && p.priceUSD > cl.budgetUSD[1] ? `Ojo: está sobre su presupuesto (${usdK(cl.budgetUSD[1])}). Prepara el argumento de valor.` : 'Está dentro de su presupuesto.',
         ],
       },
@@ -246,7 +250,7 @@ function creative(c: Ctx): Resolution {
   const piece: Piece = /whatsapp|mensaje/.test(t) ? 'whatsapp' : /descripcion/.test(t) ? 'descripcion' : /campana/.test(t) ? 'campana' : /post|publicacion|instagram/.test(t) ? 'post' : 'reel';
   const p = c.property ?? S.prop(ws, memory.get().focus.propertyId) ?? ws.properties.find((x) => x.status === 'activa' && x.inquiries7d <= 1)!;
   const objective = /capta/.test(t) ? 'captar' : /historia/.test(t) ? 'historia' : 'deseo';
-  const cr = create(p, objective, ws.agent);
+  const cr = create(p, objective, ws.agent, 0, evidenciaAgente(ws, p.district, esDemo()));
   memory.focus({ propertyId: p.id });
   const label = { reel: 'un reel de 22 segundos', descripcion: 'la descripción', post: 'el post', whatsapp: 'el mensaje de WhatsApp', campana: 'una campaña de 3 semanas' }[piece];
   return {
@@ -266,7 +270,7 @@ function followUp(c: Ctx): Resolution {
   const { ws } = c;
   const cl = c.client ?? S.client(ws, memory.get().focus.clientId) ?? ws.clients.filter((x) => x.role !== 'propietario').sort((a, b) => b.lastContactDays * b.probability - a.lastContactDays * a.probability)[0];
   const p = S.prop(ws, cl.propertyIds[0]);
-  const text = followUpMessage(cl, ws.agent, p, p && S.listingFor(ws, p.id)?.step);
+  const text = followUpMessage(cl, ws.agent, p, p && S.listingFor(ws, p.id)?.step, p && evidenciaAgente(ws, p.district, esDemo()));
   memory.focus({ clientId: cl.id });
   const days = cl.lastContactDays;
   return {
@@ -297,19 +301,20 @@ function market(c: Ctx): Resolution {
     return {
       intent: 'mercado', understood: `Quieres una lectura del mercado en ${z.district}.`,
       stages: ['Leyendo la zona…', 'Listo.'],
-      headline: `${z.district}: US$ ${z.medianUSDm2.toLocaleString('en-US')}/m², ${z.changeYoY >= 0 ? 'sube' : 'baja'} ${pct(Math.abs(z.changeYoY), 1)} en el año.`,
-      why: z.reading, blocks: [],
+      headline: `${z.district}${MERCADO_ES_DEMO ? ' (DEMO)' : ''}: US$ ${z.medianUSDm2.toLocaleString('en-US')}/m², ${z.changeYoY >= 0 ? 'sube' : 'baja'} ${pct(Math.abs(z.changeYoY), 1)} en el año.`,
+      why: MERCADO_ES_DEMO ? 'Datos de mercado de demostración: todavía no hay una fuente de mercado conectada. No los uses con clientes.' : undefined,
+      blocks: [],
       actions: [{ label: 'Ver en Mercado', primary: true, go: { to: 'tab', tab: 'mercado', params: { mercado: { district: z.district } } } }],
     };
   }
   const pos = S.position(ws, p);
   memory.focus({ propertyId: p.id });
-  const verdict = pos.verdict === 'sobre' ? `está ${pct(pos.diff)} sobre el mercado` : pos.verdict === 'bajo' ? `está ${pct(-pos.diff)} bajo el mercado` : 'está en precio de mercado';
+  const verdict = pos.verdict === 'sobre' ? `está ${pct(pos.diff)} sobre sus comparables` : pos.verdict === 'bajo' ? `está ${pct(-pos.diff)} bajo sus comparables` : 'está en línea con sus comparables';
   return {
     intent: 'mercado', understood: `Quieres saber si ${short(p)} está bien de precio.`,
     stages: ['Buscando comparables…', `Leyendo ${p.district}…`, 'Encontré esto.'],
     headline: `${short(p)} ${verdict}.`,
-    why: `Rango recomendado: ${usdK(pos.fairLow)}–${usdK(pos.fairHigh)}, según ${pos.comps.length} comparables cercanos.`,
+    why: `${METODOS.rangoValorizacion.nombre}: ${usdK(pos.fairLow)}–${usdK(pos.fairHigh)}, con ${pos.comps.length} comparables${MERCADO_ES_DEMO ? ' de demostración' : ''} (precios de oferta, no de cierre).`,
     blocks: [{ type: 'entity', kind: 'property', id: p.id }],
     actions: [
       { label: 'Ver comparables', primary: true, go: { to: 'tab', tab: 'mercado', params: { mercado: { district: p.district, propertyId: p.id, seg: 'comparables' } } } },
@@ -390,6 +395,17 @@ export async function resolve(raw: string, ws: Workspace, files: File[] = []): P
   if (files.length) return readDocs(files, ws);
   const c = context(raw, ws);
   const intent = RULES.find(([, re]) => re.test(c.t))?.[0] ?? (c.client || c.property ? 'entidad' : 'desconocido');
+  if (intent === 'desconocido' && raw.trim()) {
+    const hint = await interpret(raw);
+    if (hint && hint.intent !== 'desconocido') {
+      const c2 = context(`${raw} ${hint.rewritten}`, ws);
+      if (hint.intent !== 'entidad' || c2.client || c2.property) return dispatch(hint.intent, c2);
+    }
+  }
+  return dispatch(intent, c);
+}
+
+function dispatch(intent: Intent, c: Ctx): Resolution {
   switch (intent) {
     case 'agenda': return agenda(c);
     case 'comision': return money(c);

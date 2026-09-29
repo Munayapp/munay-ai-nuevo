@@ -259,3 +259,12 @@ export function Initials({ name }: { name: string }) {
   const parts = name.replace('Familia ', '').split(' ');
   return <span className="initials">{(parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase()}</span>;
 }
+
+/** P1.2A — Marca visible de datos de demostración. Nunca deben confundirse con datos reales. */
+export function DemoTag({ what = 'Datos de demostración' }: { what?: string }) {
+  return (
+    <span className="pill neutral" title={what} aria-label={what} style={{ letterSpacing: '0.08em' }}>
+      DEMO
+    </span>
+  );
+}

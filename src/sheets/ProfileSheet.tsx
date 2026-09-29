@@ -1,7 +1,7 @@
 import { useStore } from '../app/store';
 import * as S from '../data/select';
 import { integrations } from '../data/integrations';
-import { netCommissionPEN } from '../intelligence/finance';
+import { netCommissionPEN, netCommissionStatus } from '../intelligence/finance';
 import { memory } from '../intelligence/memory';
 import { pct, penK, relative } from '../lib/format';
 import { Bullets, Meter, Section } from '../ui/kit';
@@ -32,7 +32,7 @@ export function ProfileSheet({ accent }: { accent: string }) {
         </div>
       </div>
 
-      <Section title="Meta del mes">
+      <Section title={netCommissionStatus().etiqueta ? 'Meta del mes · estimado no verificado' : 'Meta del mes'}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
           <span>{penK(earned)} de {penK(a.goals.monthlyCommissionPEN)}</span>
           <span className="muted">{pct(earned / a.goals.monthlyCommissionPEN)}</span>
