@@ -19,7 +19,7 @@ interface Context {
   env: Env;
 }
 
-const DEFAULT_MODEL = 'gpt-4.1-mini';
+const DEFAULT_MODEL = 'gpt-5.6-luna';
 const MAX_BODY_BYTES = 8_192;
 const UPSTREAM_TIMEOUT_MS = 15_000;
 const RATE = { max: 20, windowMs: 60_000 };
