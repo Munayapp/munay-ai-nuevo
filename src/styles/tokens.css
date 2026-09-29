@@ -1,0 +1,64 @@
+/* ─────────────────────────────────────────────────────────────
+   MUNAY · Design tokens
+   Los colores de acento son funcionales, nunca decorativos:
+   ROJO acción · TURQUESA perspectiva · VIOLETA imaginación · ORO valor · CREMA calma
+   ───────────────────────────────────────────────────────────── */
+:root {
+  /* Base */
+  --ink: #090b0d;
+  --ink-1: #0d1013;
+  --ink-2: #12161a;
+  --ink-3: #1a1f24;
+  --paper: #f5f3ef;
+  --cream: #d8d1c4;
+
+  /* Acentos funcionales */
+  --red: #e50914;
+  --teal: #19c7c8;
+  --violet: #8b3dff;
+  --gold: #d6a84f;
+
+  /* Texto */
+  --text: var(--paper);
+  --text-2: rgba(245, 243, 239, 0.7);
+  --text-3: rgba(245, 243, 239, 0.46);
+
+  /* Líneas y superficies */
+  --line: rgba(245, 243, 239, 0.08);
+  --line-2: rgba(245, 243, 239, 0.14);
+  --line-3: rgba(245, 243, 239, 0.24);
+  --surface: rgba(245, 243, 239, 0.025);
+  --surface-2: rgba(245, 243, 239, 0.05);
+
+  /* Contexto (lo redefine cada pantalla) */
+  --accent: var(--cream);
+
+  /* Tipografía */
+  --serif: 'Playfair Display', 'Didot', 'Bodoni 72', 'Times New Roman', serif;
+  --sans: 'Manrope', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --fs-hero: clamp(64px, 19vw, 82px);
+  --fs-display: clamp(50px, 15vw, 62px);
+  --fs-title: 28px;
+  --fs-lead: 21px;
+  --fs-body: 15px;
+  --fs-small: 13px;
+  --fs-micro: 11px;
+
+  /* Espacio y forma */
+  --gutter: 20px;
+  --r-s: 10px;
+  --r-m: 14px;
+  --r-l: 20px;
+  --r-xl: 26px;
+  --header-h: 60px;
+  --tabbar-h: 76px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+
+  /* Movimiento: rápido, suave, funcional */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --t-fast: 160ms;
+  --t: 280ms;
+  --t-slow: 520ms;
+}
