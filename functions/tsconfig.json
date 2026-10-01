@@ -12,5 +12,5 @@
     "noEmit": true,
     "types": []
   },
-  "include": [".", "../src/intelligence/intents.ts"]
+  "include": [".", "../src/intelligence/intents.ts", "../src/data/types.ts"]
 }

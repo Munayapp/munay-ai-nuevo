@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useStore } from '../app/store';
 import * as S from '../data/select';
-import { integrations } from '../data/integrations';
+import { activeSource, integrations, integrationStatus } from '../data/integrations';
+import { hubspotEnabled, hubspotKey, hubspotStatus } from '../data/adapters/hubspot';
 import { netCommissionPEN, netCommissionStatus } from '../intelligence/finance';
 import { memory } from '../intelligence/memory';
 import { pct, penK, relative } from '../lib/format';
@@ -13,6 +15,7 @@ export function ProfileSheet({ accent }: { accent: string }) {
   const { ws, reset } = useStore();
   const a = ws.agent;
   const m = memory.get();
+  const crm = activeSource().id === 'hubspot';
   const earned = ws.operations.filter((o) => o.stage === 'cerrada').reduce((s, o) => s + netCommissionPEN(o, a), 0);
   const focus = [
     m.focus.propertyId && `Propiedad: ${S.prop(ws, m.focus.propertyId)?.address.split(',')[0]}`,
@@ -70,17 +73,64 @@ export function ProfileSheet({ accent }: { accent: string }) {
               <span style={{ display: 'block', color: 'var(--text)', fontWeight: 600 }}>{i.name}</span>
               <span className="small">{i.purpose}</span>
             </span>
-            <span className="small" style={{ color: STATUS_COLOR[i.status], textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{i.status}</span>
+            <span className="small" style={{ color: STATUS_COLOR[integrationStatus(i)], textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{integrationStatus(i)}</span>
           </div>
         ))}
-        <p className="note" style={{ marginTop: 12 }}>Costo actual: S/0. Todo funciona en este dispositivo. Nada se envía a servidores externos.</p>
+        <p className="note" style={{ marginTop: 12 }}>
+          {crm
+            ? 'Costo actual: S/0. Clientes, negocios, tareas y notas se leen y escriben en tu HubSpot a través del servidor de MUNAY; el catálogo de propiedades y el mercado siguen en este dispositivo y son de demostración.'
+            : 'Costo actual: S/0. Todo funciona en este dispositivo. Nada se envía a servidores externos.'}
+        </p>
       </Section>
+
+      {hubspotEnabled && <HubSpotConnect connected={crm} />}
 
       <div className="section">
         <button className="btn block" onClick={reset}>
-          Reiniciar datos de demostración
+          {crm ? 'Reiniciar catálogo local (HubSpot no cambia)' : 'Reiniciar datos de demostración'}
         </button>
       </div>
     </Sheet>
+  );
+}
+
+/** Conectar / desconectar HubSpot en este dispositivo. La clave es MUNAY_ACCESS_KEY, nunca el token de HubSpot. */
+function HubSpotConnect({ connected }: { connected: boolean }) {
+  const [key, setKey] = useState('');
+  const save = (value: string | null) => {
+    hubspotKey.set(value);
+    location.reload();
+  };
+  return (
+    <Section title="HubSpot">
+      {connected ? (
+        <>
+          <p className="small">
+            Conectado{hubspotStatus.loadedAt ? ` · actualizado ${relative(hubspotStatus.loadedAt)}` : ''}.
+            {hubspotStatus.skippedDeals > 0 &&
+              ` ${hubspotStatus.skippedDeals} ${hubspotStatus.skippedDeals === 1 ? 'negocio no aparece' : 'negocios no aparecen'}: falta munay_property_id de una propiedad del catálogo o un contacto comprador.`}
+          </p>
+          <button className="btn block" style={{ marginTop: 12 }} onClick={() => save(null)}>
+            Desconectar en este dispositivo
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="small">Pega la clave de acceso de MUNAY (la que configuraste en el servidor). No es el token de HubSpot.</p>
+          <input
+            className="field"
+            type="password"
+            autoComplete="off"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="Clave de acceso"
+            style={{ marginTop: 12 }}
+          />
+          <button className="btn block" style={{ marginTop: 12 }} disabled={!key.trim()} onClick={() => save(key.trim())}>
+            Conectar HubSpot
+          </button>
+        </>
+      )}
+    </Section>
   );
 }

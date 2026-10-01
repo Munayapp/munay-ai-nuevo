@@ -8,6 +8,7 @@ const KEY = 'munay.workspace.v1';
 export const localMockSource: DataSource = {
   id: 'local-mock',
   label: 'Datos de demostración (este dispositivo)',
+  demo: true,
   isReady: () => true,
 
   async load() {

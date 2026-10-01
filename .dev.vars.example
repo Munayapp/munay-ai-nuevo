@@ -3,3 +3,10 @@
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5.6-luna
 ALLOWED_ORIGINS=http://localhost:5173
+# HubSpot (opcional). Token de una Private App con scopes crm.objects.contacts/deals read+write.
+# Si tu cuenta lista aparte permisos de tareas y notas, añádelos también (lectura y escritura).
+HUBSPOT_TOKEN=
+# Clave que el agente pega en Perfil → HubSpot. Larga y aleatoria: `openssl rand -hex 24`.
+MUNAY_ACCESS_KEY=
+# Opcional: etapas de tu pipeline. Ej.: {"tasación":"123456","firma":"contractsent"}
+HUBSPOT_DEAL_STAGES=

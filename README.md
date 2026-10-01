@@ -35,6 +35,40 @@ salida `dist`), luego `npx wrangler pages secret put OPENAI_API_KEY` (y opcional
 En OpenAI usa un Project propio para MUNAY con límite de gasto mensual. En Cloudflare añade una regla de
 Rate Limiting para `/api/*`. `VITE_LLM=off` desactiva el modelo en el build.
 
+## HubSpot (Fase 8) — CRM como infraestructura, en modo híbrido
+
+```
+navegador ── GET/POST /api/hubspot (X-Munay-Key) ──▶ functions/api/hubspot.ts ── HUBSPOT_TOKEN ──▶ api.hubapi.com
+```
+
+- **Desde HubSpot:** clientes (Contacts), operaciones (Deals), tareas (Tasks) y actividad (Notes).
+  **En el dispositivo:** agente, propiedades y sus propietarios, captaciones, documentos, leads y mercado.
+  HubSpot Free no tiene un objeto "Propiedad", así que el catálogo sigue siendo el de demostración y la
+  marca DEMO se mantiene.
+- No es un proxy abierto: el servidor traduce HubSpot ⇄ MUNAY (`functions/_lib/hubspot.ts`) y solo acepta
+  una lista cerrada de cambios (`task.create`, `task.complete`, `client.contacted`, `activity.log`,
+  `operation.update`, `lead.create`). Captaciones y leads vistos viven en el dispositivo.
+- Como devuelve datos de clientes, exige `MUNAY_ACCESS_KEY` (cabecera `X-Munay-Key`); sin ella configurada
+  no responde. Además valida el origen y aplica rate limit. Para más de un usuario, pon Cloudflare Access
+  delante de `/api/hubspot`.
+- Un Deal aparece como operación si su `munay_property_id` coincide con una propiedad del catálogo y tiene un
+  contacto comprador asociado; Perfil dice cuántos quedaron fuera. Si HubSpot no responde, MUNAY vuelve a la
+  demo y lo avisa.
+
+**Configurar:** crea en HubSpot una Private App con scopes `crm.objects.contacts.read/write` y
+`crm.objects.deals.read/write` (y los de tareas y notas si tu cuenta los lista aparte); opcionalmente las propiedades personalizadas listadas en
+`functions/_lib/hubspot.ts` (`munay_property_id`, `munay_rol`, `munay_presupuesto`…). Luego:
+
+```bash
+npx wrangler pages secret put HUBSPOT_TOKEN
+npx wrangler pages secret put MUNAY_ACCESS_KEY      # openssl rand -hex 24
+npx wrangler pages secret put HUBSPOT_DEAL_STAGES   # opcional, si tu pipeline no es el por defecto
+```
+
+Construye con `VITE_CRM=hubspot` (variable de build en Cloudflare Pages) y, en la app, Perfil → HubSpot →
+pega la clave de acceso. En local: mismas variables en `.dev.vars` y `VITE_CRM=hubspot npm run dev` junto a
+`npm run dev:api`.
+
 ## Arquitectura
 
 ```
@@ -58,18 +92,19 @@ src/
 │   ├─ types.ts      modelo de dominio
 │   ├─ changes.ts    todo cambio es un evento explícito (Change)
 │   ├─ source.ts     contrato DataSource
-│   ├─ adapters/     localMock (activo) · hubspot (preparado, con mapeo documentado)
+│   ├─ adapters/     localMock (por defecto) · hubspot (híbrido: CRM vía proxy + catálogo local)
 │   ├─ integrations.ts  registro honesto: activa / preparada / futura
 │   ├─ mock/seed.ts  datos de demostración (Carlos, 9 propiedades, 9 clientes, 4 operaciones…)
 │   └─ select.ts     consultas y posicionamiento de precio
 ├─ ui/             Sistema de diseño: kit, iconos, Composer (texto/voz/archivos), Scene, ZoneMap
 └─ styles/         tokens.css (paleta funcional, tipografía, movimiento) · components.css
-functions/         Cloudflare Pages Functions (servidor): api/llm.ts (proxy OpenAI), _lib/prompts.ts
+functions/         Cloudflare Pages Functions (servidor): api/llm.ts (proxy OpenAI), api/hubspot.ts (proxy CRM),
+                   _lib/prompts.ts, _lib/hubspot.ts (mapeo HubSpot ⇄ MUNAY), _lib/http.ts
 ```
 
 **Flujo de datos:** la UI llama a `run(action)` → los efectos se aplican como `Change` al store (optimista) → la
 `DataSource` activa los persiste. Hoy es `localStorage`; para cambiar a HubSpot se implementa
-`adapters/hubspot.ts` sin tocar pantallas.
+`adapters/hubspot.ts` sin tocar pantallas (ya implementado, ver HubSpot arriba).
 
 ## Qué es real y qué está preparado
 
@@ -83,7 +118,7 @@ functions/         Cloudflare Pages Functions (servidor): api/llm.ts (proxy Open
 | Contenido (reel, post, WhatsApp…) | Real · plantillas locales con variaciones |
 | QR de propiedad + experiencia del visitante + lead al PULSE | Real en este dispositivo · para visitantes externos hay que alojarlo |
 | Firma de autorización | Firma en pantalla (demo) · proveedor certificado preparado |
-| HubSpot | Preparado · requiere un proxy para el token (Fase 8) |
+| HubSpot | Real con `VITE_CRM=hubspot` + secretos · clientes, negocios, tareas y notas; catálogo aún demo |
 
 ## Fases
 
@@ -94,7 +129,7 @@ functions/         Cloudflare Pages Functions (servidor): api/llm.ts (proxy Open
 - [x] 5 · CREA (6 objetivos, propuesta, 5 piezas, enfoque/versión)
 - [x] 6 · NEGOCIO (transacciones, clientes, captaciones, desempeño, siguiente paso)
 - [x] 7 · MEMORY / PULSE / COACH / ACTION con datos mock
-- [~] 8 · Adapter HubSpot preparado (contrato + mapeo); falta el proxy y la implementación
+- [x] 8 · HubSpot: proxy con token en el servidor + adapter híbrido (CRM real, catálogo local)
 
 ## Para probar
 
@@ -102,3 +137,5 @@ En HOY escribe o di: *"¿Cuánto me queda de esta venta?"*, *"Voy a ver una prop
 *"Quiero captar la oficina de Begonias"*, *"Seguimiento a Lucía"*, *"Créame un Reel"*.
 Abre una propiedad → **QR** → *Ver como visitante* → pide una visita → vuelve: aparece en PULSE.
 Perfil (avatar) → *Reiniciar datos de demostración*.
+
+`npm test` cubre el Core, el Truth Gate y el mapeo/escritura de HubSpot (`src/core/tests/p8.test.ts`).

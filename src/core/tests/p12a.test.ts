@@ -249,7 +249,7 @@ describe('P1.2A · 9 — Demo: todo dato demo visible está identificado', () =>
   });
   it('la cabecera y la vista pública muestran DEMO cuando la fuente es de demostración', () => {
     assert.match(code(`${ROOT}/app/Shell.tsx`), /demo && .*<DemoTag/);
-    assert.match(code(`${ROOT}/app/store.tsx`), /demo: source\.id === 'local-mock'/);
+    assert.match(code(`${ROOT}/app/store.tsx`), /demo: source\.demo/);
   });
   it('los datos del seed ya no incluyen lecturas editoriales de zona', () => {
     assert.ok(ws().zones.every((z) => !('reading' in z)));

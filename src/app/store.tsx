@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { applyChange, type Change } from '../data/changes';
-import { activeSource } from '../data/integrations';
+import { activeSource, fallBackToLocal } from '../data/integrations';
 import * as S from '../data/select';
 import type { Workspace } from '../data/types';
 import { memory } from '../intelligence/memory';
@@ -55,7 +55,7 @@ function focusFor(ws: Workspace, s: SheetSpec) {
 }
 
 export function StoreProvider({ children, fallback }: { children: ReactNode; fallback: ReactNode }) {
-  const source = useRef(activeSource()).current;
+  const [source, setSource] = useState(activeSource);
   const [ws, setWs] = useState<Workspace | null>(null);
   const [tab, setTabState] = useState<Tab>(tabFromHash);
   const [params, setParams] = useState<TabParams>({});
@@ -67,7 +67,15 @@ export function StoreProvider({ children, fallback }: { children: ReactNode; fal
 
   useEffect(() => {
     memory.startSession();
-    source.load().then(setWs);
+  }, []);
+
+  useEffect(() => {
+    source.load().then(setWs, (e: unknown) => {
+      // La fuente remota (HubSpot) no respondió: MUNAY sigue con la demo y lo dice.
+      fallBackToLocal();
+      setSource(activeSource());
+      setToast({ text: `${e instanceof Error ? e.message : 'CRM no disponible'} · usando datos de demostración`, n: Date.now() });
+    });
   }, [source]);
 
   useEffect(() => {
@@ -137,15 +145,21 @@ export function StoreProvider({ children, fallback }: { children: ReactNode; fal
 
   const reset = useCallback(async () => {
     memory.clear();
-    const fresh = await (source.reset?.() ?? source.load());
+    let fresh: Workspace;
+    try {
+      fresh = await (source.reset?.() ?? source.load());
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'No pude reiniciar');
+      return;
+    }
     setWs(fresh);
     setStack([]);
     setTab('hoy');
-    notify('Demo reiniciada');
+    notify(source.id === 'local-mock' ? 'Demo reiniciada' : 'Catálogo local reiniciado');
   }, [source, setTab, notify]);
 
   const value = useMemo<Store | null>(
-    () => (ws ? { ws, demo: source.id === 'local-mock', tab, params, stack, toast, ask, setTab, open, back, closeAll, go, run, commit, notify, askMunay, reset } : null),
+    () => (ws ? { ws, demo: source.demo, tab, params, stack, toast, ask, setTab, open, back, closeAll, go, run, commit, notify, askMunay, reset } : null),
     [ws, source, tab, params, stack, toast, ask, setTab, open, back, closeAll, go, run, commit, notify, askMunay, reset],
   );
 

@@ -6,12 +6,11 @@
  * modelo, instrucciones o límites: solo `{ task, input }` de una lista cerrada.
  */
 import { TASKS, isTask } from '../_lib/prompts';
+import { type BaseEnv, fail, json, originAllowed, rateLimiter } from '../_lib/http';
 
-interface Env {
+interface Env extends BaseEnv {
   OPENAI_API_KEY?: string;
   OPENAI_MODEL?: string;
-  /** Orígenes extra permitidos, separados por coma (p. ej. http://localhost:5173 en desarrollo). */
-  ALLOWED_ORIGINS?: string;
 }
 
 interface Context {
@@ -22,36 +21,7 @@ interface Context {
 const DEFAULT_MODEL = 'gpt-5.6-luna';
 const MAX_BODY_BYTES = 8_192;
 const UPSTREAM_TIMEOUT_MS = 15_000;
-const RATE = { max: 20, windowMs: 60_000 };
-
-const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
-  });
-
-const fail = (status: number, error: string) => json(status, { error });
-
-function originAllowed(request: Request, env: Env): boolean {
-  const origin = request.headers.get('Origin');
-  if (!origin) return false;
-  if (origin === new URL(request.url).origin) return true;
-  const extra = (env.ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  return extra.includes(origin);
-}
-
-// Límite por instancia (best-effort). El límite real va como regla de Rate Limiting en Cloudflare.
-const hits = new Map<string, { n: number; reset: number }>();
-function limited(ip: string): boolean {
-  const now = Date.now();
-  const h = hits.get(ip);
-  if (!h || h.reset < now) {
-    if (hits.size > 5_000) hits.clear();
-    hits.set(ip, { n: 1, reset: now + RATE.windowMs });
-    return false;
-  }
-  return ++h.n > RATE.max;
-}
+const limited = rateLimiter(20, 60_000);
 
 function outputText(data: unknown): string | undefined {
   const output = (data as { output?: { type: string; content?: { type: string; text?: string }[] }[] }).output;
@@ -64,7 +34,7 @@ function outputText(data: unknown): string | undefined {
 export const onRequestPost = async ({ request, env }: Context): Promise<Response> => {
   if (!originAllowed(request, env)) return fail(403, 'Origen no permitido.');
   if (!env.OPENAI_API_KEY) return fail(503, 'Modelo no configurado.');
-  if (limited(request.headers.get('CF-Connecting-IP') ?? 'local')) return fail(429, 'Demasiadas solicitudes.');
+  if (limited(request)) return fail(429, 'Demasiadas solicitudes.');
   if (Number(request.headers.get('Content-Length') ?? 0) > MAX_BODY_BYTES) return fail(413, 'Solicitud demasiado grande.');
 
   let body: { task?: unknown; input?: unknown };
